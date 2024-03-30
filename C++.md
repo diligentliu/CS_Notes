@@ -8,11 +8,11 @@
   - 将为初始化的全局变量赋值，即 .bss 段内容
   - 全局对象初始化，在 main 之前调用构造函数
   - 将 main 函数的 argc 和 argv 压栈，相当于传参
-  - \__attribute__((constructor))，这个东西相当于一个函数，可以通过 \__attribute__((constructor(101))) 类似这样的声明设置优先级，优先级往往从 101 开始，0-100 是系统使用的，会在 main 函数之前执行
+  - \_\_attribute__((constructor))，这个东西相当于一个函数，可以通过 \_\_attribute__((constructor(101))) 类似这样的声明设置优先级，优先级往往从 101 开始，0-100 是系统使用的，会在 main 函数之前执行
 - main 函数执行之后
   - 全局对象的析构函数
   - 可以用 atexit 注册一个函数，会在 main 之后运行，这个注册的顺序和最后运行的顺序是相反的，他的应用场景通常是可以通过调整注册顺序析构全局变量，例如全局对象在调用析构的时候会调用全局 Log 对象打印日志输出，这时候就需要保证 Log 对象在该对象之后虚构
-  - \__attribute__((destructor))
+  - \_\_attribute__((destructor))
 
 ## 2. 结构体内存对齐问题
 
@@ -21,7 +21,7 @@
 - alignof 是求该类型的内存对齐方式
 - alignas 是要求该类型的内存对齐的字节数，但是 alignas 存在失效的情况
   - 一是要求的内存对齐值小于自然对齐的最小单位
-  - 二是使用单字节的方式对齐，这个其实和一的类别是一样的，这里单独分开了，只是想介绍一下 #pragma pack(1)
+  - 二是使用单字节的方式对齐，这个其实和一的类别是一样的，这里单独分开了，只是想提醒一下使用 #pragma pack(1)
   - 三是通过结构体内部指定位数的情况
 
 ## 3. 指针和引用的区别
@@ -73,7 +73,7 @@ C/C++ 运行时会维护一个内存池，malloc 和 free 的内存首先会从�
 - typedef 主要用于定义别名
 - typedef 是编译的一部分，不会像 define 一样替换
 - typedef 会进行类型检查
-- 对指针的操作有一些细节上的差别，例如 typedef char * p_char 和 #define p_char char * 区别，对于语句 p_char a, b; typedef 语句相当于 char *a, *b; 而 #define 语句相当于 char *a, b;
+- 对指针的操作有一些细节上的差别，例如 typedef char *p_char 和 #define p_char char* 区别，对于语句 p_char a, b; typedef 语句相当于 char *a,*b; 而 #define 语句相当于 char *a, b;
 
 ## 10. strlen 和 sizeof 的区别
 
@@ -174,6 +174,7 @@ C/C++ 运行时会维护一个内存池，malloc 和 free 的内存首先会从�
       cout << "小端存储" << endl;
   }
   `````
+
 - union
 
   `````c++
