@@ -344,3 +344,319 @@ C/C++ 运行时会维护一个内存池，malloc 和 free 的内存首先会从�
 
 - printf 是 C 中的标准输出函数，定义在 stdio.h 中，他使用格式化字符串来指定后续参数的输出格式，不具备内置的类型安全，格式化字符串和后续参数之前可能会存在类型不匹配
 
+## 39. 成员函数里 memset(this, 0, sizeof(*this)) 会发生什么
+
+- 类中所有成员置为 0
+- 但是在某些情况下使用会出现问题
+  - 类中含有虚函数表，这么做会破坏虚函数表
+  - 类中含有其他的对象
+
+## 40. C++ 的执行流程
+
+- 预编译
+  - 删除所有的 #define，展开所有的宏定义
+  - 处理条件编译指令
+  - 处理 #include ，将文件内容替换到它的未知，这个过程是递归进行的，文件中包含其他的文件
+  - 删除所有的注释
+  - 保留所有的 #pragma 编译器指令
+  - 添加行号和文件标识，这部分生成调试信息、编译错误、警告需要使用
+- 编译，生成汇编代码
+- 汇编，将汇编代码转变为机器可执行的指令（机器码）。根据汇编指令和机器指令的对照表一一翻译
+- 链接，将不同的源文件产生的目标文件进行链接，形成一个可执行的程序
+  - 函数和数据被编译进一个二进制文件。在使用静态库的情况下，在编译链接可执行文件时，链接器从库中复制这些函数和数据并把他们和应用程序的其他模块组合起来创建最终的可执行文件。
+  - 空间浪费
+  - 更新困难
+  - 运行速度快
+- 动态链接的基本思想是把程序按照模块拆分成各个相对独立部分，在程序运行时才将它们链接在一起形成一个完整的程序，而不是像静态链接一样把所有程序模块都链接成一个单独的可执行文件。
+  - 共享库
+  - 更新方便
+  - 性能损耗
+
+## 41. 使用 C 语言实现 C++ 多态
+
+```c++
+typedef void (*FUNC)();
+
+struct A {
+    FUNC func;
+    int a;
+};
+
+struct B {
+    struct A a;
+    int b;
+};
+
+void func_A() {
+    cout << "FUNC A" << endl;
+}
+
+void func_B() {
+    cout << "FUNC B" << endl;
+}
+
+void test() {
+    struct A a_struct;
+    struct B b_struct;
+    a_struct.func = func_A;
+    b_struct.a.func = func_B;
+
+    struct A *p_A = &a_struct;
+    p_A->func();
+    struct A *p_A_2 = (struct A *) (&b_struct);
+    p_A_2->func();
+}
+```
+
+## 42. 类的 this 指针
+
+- this 指向对象的首地址
+- this 只能在成员函数中使用，在全局函数、静态函数中不能用 this
+- this 的存储位置会因为编译器不同而不同，可能会在栈、寄存器、甚至全局变量。在汇编中会有三种出现情况：立即数、寄存器值、内存变量值，例如 VC 是通过 eax 寄存器传递 this 参数的
+- this 在成员函数的开始前构造，在成员函数的结束后清除
+
+## 43. 如果调用 delete this 会发生什么
+
+在类的内存空间中，只有数据成员和虚函数表指针，并不包含代码内容，类的成员函数单独放在代码段中。在调用成员函数时，隐含传递 this 指针，让成员函数知道是哪个对象调用他，当调用 delete this 时，类对象的内存空间被释放。在这时候进行任何的函数调用，如果不涉及类的数据成员和虚函数表指针，可以正常运行，但是如果涉及到 this 指针，会出现不可预期的问题
+
+## 44. 为什么是不可预期的问题？
+
+delete this 后释放了类对象的内存空间，这部分空间不再属于这个进程，但是由于内存池的存在，并没有被操作系统收回，仍然可以被访问，但是这里的数据又没有意义，当获取数据成员时，可能得到的是一个随机的数，访问虚函数表时，指针可能无效也可以转到未知的区域
+
+## 45. 如果在类的析构函数中调用 delete this 函数，会发生什么？
+
+会导致堆栈溢出。delete 的本质是调用析构函数，然后释放内存。这里就存在递归调用的问题，会出现无线递归，导致堆栈溢出
+
+## 46. C++ 11 有什么新特性？
+
+- nullptr 代替 NULL
+- 引入了 auto 和 decltype 实现类型推导
+- 引入了基于范围的 for 循环 for (int i : nums) {}
+- 类和结构体中的列表初始化，可以防止隐式的类型窄化
+- lambda 类型窄化
+- std::forward_list 单向链表
+- 右值引用和 move 语义
+- ......
+
+## 47. C++ 中 NULL 和 nullptr 的区别
+
+在 C 中 NULL 是 (void *) 0，但是在 C++ 中 NULL 是 0，这样会在函数重载并调用 NULL 的时候出现多匹配的错误，于是 C++ 通过模板类的方式重定义了 nullptr，使 nullptr 能够转为对应类型的空指针
+
+## 48. 智能指针
+
+- 智能指针是一个类，用来存储指向动态分配对象的指针，负责自动释放动态分配的对象，防止堆内存泄露，动态分配的资源，交给一个类对象去管理，当类对象声明周期结束时，自动调用析构函数释放资源
+
+- shared_ptr
+
+  ```c++
+  template<typename T>
+  class Shared_Ptr {
+  private:
+  	T *_ptr;
+  	int *_count;
+  public:
+  	Shared_Ptr(T* ptr = NULL) : _ptr(ptr), _count(new int(1)) {}
+  	Shared_Ptr(const Shared_Ptr& s) : _ptr(s._ptr), _count(s._count) {
+  		++(*_count);
+  	}
+  	Shared_Ptr<T> &operator=(const Shared_Ptr& s) {
+  		if (&s != this) {
+  			if (--(*(this->_count)) == 0) {
+  				delete this->_ptr;
+  				delete this->_count;
+  			}
+  			_ptr = s._ptr;
+  			_count = s._count;
+  			++(*_count);
+  		}
+  		return *(this);
+  	}
+  	T& operator*() {
+  		return *_ptr;
+  	}
+  	T* operator->() {
+  		return _ptr;
+  	}
+  	~Shared_Ptr() {
+  		--(*_count);
+  		if (*_count == 0) {
+  			delete _ptr;
+  			delete _count;
+  			_ptr = NULL;
+  			_count = NULL;
+  		}
+  	}
+  };
+  ```
+
+- unique_ptr
+
+  ```c++
+  template<typename T>
+  class Unique_Ptr {
+  private:
+  	T *_ptr;
+  public:
+  	explicit Unique_Ptr(T *ptr = nullptr) : _ptr(ptr) {}
+  	Unique_Ptr(const Unique_Ptr &) = delete;
+  	Unique_Ptr &operator=(const Unique_Ptr &) = delete;
+  	Unique_Ptr(Unique_Ptr &&other) : _ptr(other._ptr) {
+  		other._ptr = nullopt;
+  	}
+  	Unique_Ptr &operator=(Unique_Ptr &&other) {
+  		if (this != &other) {
+  			delete _ptr;
+  			_ptr = other._ptr;
+  			other._ptr = nullptr;
+  		}
+  		return *this;
+  	}
+  	T& operator*() {
+  		return *_ptr;
+  	}
+  	T* operator->() {
+  		return _ptr;
+  	}
+  	T* get() {
+  		return _ptr;
+  	}
+  	T* release() {
+  		T *temp = _ptr;
+  		_ptr = nullptr;
+  		return temp;
+  	}
+  	void reset(T *p = nullptr) {
+  		T *old = _ptr;
+  		_ptr = p;
+  		delete old;
+  	}
+  	~Unique_Ptr() {
+  		delete _ptr;
+  	}
+  };
+  ```
+
+- weak_ptr，为了解决 shared_ptr 出现的环形引用问题，是为了配合 shared_ptr 引入的，使用前应该使用 lock 检查是否有效
+
+- auto_ptr，已废弃，有拷贝语义，可能使一个对象被析构两次
+
+## 49. C++ 哈希表的扩容机制
+
+- 有一个负载因子的概念，负载因子等于哈希表中元素数与哈希桶数量的比值
+- 当尝试插入一个新的元素使负载因子超过其最大负载因子哈希表会进行扩容
+- 扩容的过程：
+  - 增加桶的数量：通常使桶的数量加倍
+  - 重新哈希
+  - 复制或移动元素
+
+## 50. STL 的两级空间配置器
+
+- 一级配置器：实际上就是 malloc、free、realloc 等函数执行的内存配置，当分配大于 128 字节的空间时，直接用一级配置器分配内存
+- 二级配置器
+  - 维护 16 条链表，最小为 8 字节，以 8 字节递增，最大 8 * 16 = 128 字节，传入一个字节参数，表示你需要多大的内存，链表数组将找到第一个符合大小的索引，在找到索引后，会查看当前指向的链表 free_list 是否为空，如果不为空分配这个链表，从对应的 free_list中拔出，将指针后移一位
+  - 如果对应的 free_list 为空，先看内存池中是否为空，如果不空
+    - 检验他剩余空间是否够 20 个节点大小，若足够则直接从内存池中拿出 20 个节点大小空间，将其中一个分配给用户，另外 19 个挂载到 free_list 末端
+    - 如果不够 20 个，则看他能否满足一个节点，分配给用户，剩余的内存池尽可能多的挂载到 free_list 末端
+    - 如果不够一个节点将内存池剩余的空间挂载到能挂载的节点，然后再给内存池申请内存
+  - 如果内存池为空，二级配置器会使用 malloc 从堆上申请内存，大概会申请 20 块所需内存的大小，一半拿来用，一半放到内存池中
+  - malloc 失败，说明堆上已经没有内存了，此时二级配置器会去更大的索引位置去搜索，从比它所需节点空间更大的 free_list 找一个节点使用，如果没找到，就去调用一级适配器
+- 释放时若释放的空间大于 128 字节，则会调用一级配置器，否则将内存块挂上自由链表
+- 在增加效率的同时带来了一些问题：
+  - 因为 free_list 的大小都是八的倍数，不可避免的带来了一些内部碎片的问题
+  - 在程序执行的过程中，二级配置器将申请的内存一块一块的挂载到自由链表上，不会返还给操作系统，这些内存块在程序运行结束才会被释放内存，随着不断开辟小内存，堆上的空闲大小越来越小，可能会导致开辟大块内存失败，而且当前进程一直占用也会使其他进程使用不了。
+
+## 51. vector 如何释放空间
+
+由于 vector 只增不减，比如你首先分配了 10000 个字节，然后 erase 掉后面 9999 个，留下一个有效元素，但是内存占用仍然为 10000 个。所有的内存空间在 vector 析构时才被回收，即使调用 clear 仍然如此
+
+如果需要动态空间缩小，可以考虑使用 deque。如果 vector 可以使用 swap 释放内存
+
+```c++
+vector(Vec).swap(Vec);
+vector().swap(Vec);
+```
+
+## 52. erase 的迭代器失效问题
+
+- 数组式容器，删除对应的迭代器后会使之后的迭代器都失效，不能使用 erase(it++) 的方式，但是 erase 的返回值是下一个有效的迭代器
+- 关联容器，只失效被删除的迭代器
+
+## 53. map 中 [] 与 find 的区别？
+
+- map 的下标运算符的作用是：将关键码作为下标去执行查找，并返回对应的值；如果不存在这个关键码，就将一个具有该关键码和值类型的默认值的项插入这个 map
+- map 的 find 函数在找到后会返回对应的迭代器；如果不存在这个关键码，就返回尾迭代器
+
+## 54. deque
+
+- deque 没有容量的概念，他是动态的以分段连续空间组合而成，随时可以添加一段新的空间并链接起来，有点像数组的链表
+- deque 是双向开口的连续线性空间，可以在头尾两段进行插入和删除操作，时间复杂度为 O(1) 
+
+## 55. stl 中的 allocator、deallocator
+
+allocator、deallocator 相当于做了一个一级配置器和二级配置器的空间入口判断
+
+## 56. 什么时候析构函数不需要写成虚函数——奇异的递归模板模式
+
+CRTP 模板中不需要声明为虚函数：
+
+```c++
+template <typename T>
+class Base {
+public:
+	void func() {
+		T& derived = static_cast<T&>(*this);
+		derived.func();
+	}
+};
+
+class Derived_1 : public Base<Derived_1> {
+public:
+	void func() {
+		std::cout << "Derived_1 class" << std::endl;
+	}
+};
+
+class Derived_2 : public Base<Derived_2> {
+public:
+	void func() {
+		std::cout << "Derived_2 class" << std::endl;
+	}
+};
+
+int main() {
+	Base<Derived_1> *d1 = new Derived_1();
+	Base<Derived_2> *d2 = new Derived_2();
+	d1->func();
+	d2->func();
+	delete d1;
+	delete d2;
+	return 0;
+}
+```
+
+## 57. inline 关键字可否将构造函数、析构函数、虚函数声明为内联函数
+
+首先，将这些函数声明为内联函数，在语法上没有错误。因为 inline 同 register 一样，只是个建议，编译器并不一定真正的内联。
+
+register 关键字：这个关键字请求编译器尽可能的将变量存在CPU内部寄存器中，而不是通过内存寻址访问，以提高效率
+
+构造函数和析构函数声明为内联函数是没有意义的
+
+《Effective C++》中所阐述的是：将构造函数和析构函数声明为 inline 是没有什么意义的，即编译器并不真正对声明为 inline 的构造和析构函数进行内联操作，因为编译器会在构造和析构函数中添加额外的操作（申请/释放内存，构造/析构对象等），致使构造函数 / 析构函数并不像看上去的那么精简。其次，class中的函数默认是 inline 型的，编译器也只是有选择性的 inline，将构造函数和析构函数声明为内联函数是没有什么意义的。
+
+将虚函数声明为inline，要分情况讨论
+
+有的人认为虚函数被声明为inline，但是编译器并没有对其内联，他们给出的理由是inline是编译期决定的，而虚函数是运行期决定的，即在不知道将要调用哪个函数的情况下，如何将函数内联呢？
+
+上述观点看似正确，其实不然，如果虚函数在编译器就能够决定将要调用哪个函数时，就能够内联，那么什么情况下编译器可以确定要调用哪个函数呢，答案是当用对象调用虚函数（此时不具有多态性）时，就内联展开
+
+综上，当是指向派生类的指针（多态性）调用声明为inline的虚函数时，不会内联展开；当是对象本身调用虚函数时，会内联展开，当然前提依然是函数并不复杂的情况下。
+
+## 58. 构造函数和析构函数中可以调用虚函数吗？
+
+- 语法上，没有问题
+- 效果上，达不到应该有的目的，派生类对象在进入基类的构造函数和析构函数时，对象类型变成了基类类型，而不是派生类类型。
+
+## 59. 虚继承
+
+虚继承出现在菱形继承或者说钻石继承的情况下，因为这种继承方式内部会继承多个基类，虚继承的情况下，无论基类被继承多少次，只会存在一个实体
